@@ -15,14 +15,20 @@ namespace IngameScript {
 		private enum MissileState { Connect, Fuel, Ready, Jump }
 		private StateMachine<MissileState> m_stateMachine;
 
-		public IMissileGuidance Guidance { get; set; }
+		public IMissileGuidance Guidance { get; private set; }
 
 		private IMyShipConnector m_connector;
 		private IMyShipMergeBlock m_merge;
 		private List<IMyBatteryBlock> m_batteries;
 		private List<IMyGasTank> m_gasTanks;
+		private List<IMyGyro> m_gyroscopes;
 		private List<IMyThrust> m_thrust;
 		private List<IMyThrust> m_thrustBack;
+
+		public Program CoreProgram { get { return m_coreProgram; } }
+		public List<IMyGyro> Gyroscopes { get { return m_gyroscopes; } }
+		public List<IMyThrust> Thrust { get { return m_thrust; } }
+		public List<IMyThrust> ThrustBack { get { return m_thrustBack; } }
 
 		public Missile( Program coreProgram, IMissileGuidance guidanceSystem ) : base( coreProgram ) {
 			m_stateMachine = new StateMachine<MissileState>();
@@ -63,11 +69,13 @@ namespace IngameScript {
 
 			m_batteries = new List<IMyBatteryBlock>();
 			m_gasTanks = new List<IMyGasTank>();
+			m_gyroscopes = new List<IMyGyro>();
 			m_thrust = new List<IMyThrust>();
 			m_thrustBack = new List<IMyThrust>();
 
 			GridTerminalSystem.GetBlockGroupWithName( "[Missile] Batteries" ).GetBlocksOfType( m_batteries );
 			GridTerminalSystem.GetBlockGroupWithName( "[Missile] Gas Tanks" ).GetBlocksOfType( m_gasTanks );
+			GridTerminalSystem.GetBlockGroupWithName( "[Missile] Gyroscopes" ).GetBlocksOfType( m_gyroscopes );
 			GridTerminalSystem.GetBlockGroupWithName( "[Missile] Thrust" ).GetBlocksOfType( m_thrust );
 			GridTerminalSystem.GetBlockGroupWithName( "[Missile] Thrust Back" ).GetBlocksOfType( m_thrustBack );
 
@@ -92,6 +100,7 @@ namespace IngameScript {
 
 		public override void Update() {
 			m_stateMachine.Update();
+			Guidance.Update();
 		}
 
 		private void OnEnterConnect() {
@@ -126,20 +135,18 @@ namespace IngameScript {
 		private void OnReadyUpdate( StateMachine<MissileState> sm ) {
 			if (m_connector.Status != MyShipConnectorStatus.Connected) {
 				sm.SwitchState( MissileState.Jump );
-				DebugAPI.PrintChat( "LAUNCHED" );
 			}
 		}
 
 		private void OnReadyLeaving() {
+			m_coreProgram.Runtime.UpdateFrequency = UpdateFrequency.Update1;
+
 			m_thrust.ForEach( thruster => thruster.Enabled = true );
 			m_thrustBack.ForEach( thruster => thruster.ThrustOverridePercentage = 0.6f );
-
-			DebugAPI.PrintChat( "Thrusters ON: " + m_thrust.Count.ToString() );
 		}
 
 		private void OnJumpEnter() {
 			// jump out of the silo
-			DebugAPI.PrintChat( "JUMPING" );
 
 			m_merge.Enabled = false;
 

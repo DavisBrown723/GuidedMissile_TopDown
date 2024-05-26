@@ -42,7 +42,6 @@ namespace IngameScript {
 				return Vector3.Zero;
 			}
 
-			var left = Controller.WorldMatrix.Left.Normalized();
 			var gravity = Controller.GetNaturalGravity().Normalized();
 
 			var forward = Controller.WorldMatrix.Forward.Normalized();

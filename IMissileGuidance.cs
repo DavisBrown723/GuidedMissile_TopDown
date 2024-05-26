@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace IngameScript {
 	public interface IMissileGuidance {
-		void Initialize( IMissile missile );
+		void Initialize( Missile missile );
 
 		void Start();
 

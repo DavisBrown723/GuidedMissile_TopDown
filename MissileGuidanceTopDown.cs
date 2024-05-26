@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Sandbox.Game.Entities;
-using VRageRender.Messages;
-using static IngameScript.Missile;
+﻿using Sandbox.ModAPI.Ingame;
 
 namespace IngameScript {
 	public class MissileGuidanceTopDown : IMissileGuidance {
 		private Missile m_missile;
 
-		public enum GuidanceState { Climb, Orient, Flight }
+		public enum GuidanceState { Climb, Flight }
 
 		StateMachine<GuidanceState> stateMachine;
 
@@ -20,20 +13,14 @@ namespace IngameScript {
 			stateMachine.AddStates(
 				new State<GuidanceState>(
 					GuidanceState.Climb,
-					null,
+					OnClimbEnter,
 					OnClimbUpdate,
-					null
-				),
-				new State<GuidanceState>(
-					GuidanceState.Orient,
-					null,
-					null,
 					null
 				),
 				new State<GuidanceState>(
 					GuidanceState.Flight,
 					null,
-					null,
+					OnFlightUpdate,
 					null
 				)
 			);
@@ -51,8 +38,29 @@ namespace IngameScript {
 			stateMachine.Update();
 		}
 
+		private void OnClimbEnter() {
+			m_missile.CoreProgram.Runtime.UpdateFrequency = UpdateFrequency.Update10;
+
+			m_missile.ThrustBack.ForEach( thruster => thruster.ThrustOverridePercentage = 0.7f );
+		}
+
 		private void OnClimbUpdate( StateMachine<GuidanceState> sm ) {
-			var gravity = m_missile.controller
+			if (m_missile.GetElevation(MyPlanetElevation.Surface) > 1000) {
+				sm.SwitchState( GuidanceState.Flight );
+				return;
+			}
+
+			var upVector = -m_missile.GetGravity();
+
+			var rotation = Helpers.GetRotationVector( upVector, null, m_missile.Controller.WorldMatrix );
+			Helpers.ApplyGyroOverride( rotation, m_missile.Gyroscopes, m_missile.Controller.WorldMatrix );
+		}
+
+		private void OnFlightUpdate(StateMachine<GuidanceState> sm) {
+			var horizonVector = m_missile.GetHorizon();
+
+			var rotation = Helpers.GetRotationVector( horizonVector, null, m_missile.Controller.WorldMatrix );
+			Helpers.ApplyGyroOverride( rotation, m_missile.Gyroscopes, m_missile.Controller.WorldMatrix );
 		}
 	}
 }
